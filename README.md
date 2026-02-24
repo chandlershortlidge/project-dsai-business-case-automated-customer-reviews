@@ -1,142 +1,136 @@
-![logo_ironhack_blue](https://user-images.githubusercontent.com/23629340/40541063-a07a0a8a-601a-11e8-91b5-2f13e4e6b441.png)
+# Automated Customer Review Analysis
 
-# Project | Business Case: Automated Customer Reviews
+An NLP pipeline that classifies Amazon product review sentiment, clusters products into meta-categories, and generates blog-style recommendation articles using generative AI.
 
-## Project Goal
+## Project Overview
 
-This project aims to develop a product review system powered by NLP models that aggregate customer feedback from different sources. The key tasks include classifying reviews, clustering product categories, and using generative AI to summarize reviews into recommendation articles.
+With thousands of reviews spread across multiple platforms, manually analyzing customer feedback is impractical. This project automates the process through three stages:
 
-## Problem Statement
+1. **Sentiment Classification** - Classify reviews as positive, negative, or neutral using a pre-trained RoBERTa transformer model.
+2. **Product Category Clustering** - Group products into 6 meta-categories using sentence embeddings and K-Means clustering, refined by an LLM.
+3. **Blog Post Generation** - Summarize reviews into recommendation articles for each category using a local LLM (Ollama / Qwen 2.5).
 
-With thousands of reviews available across multiple platforms, manually analyzing them is inefficient. This project seeks to automate the process using NLP models to extract insights and provide users with valuable product recommendations.
+## Dataset
 
-## Main Tasks
+- **Source**: [Datafiniti Amazon Consumer Reviews](https://www.kaggle.com/datasets/datafiniti/consumer-reviews-of-amazon-products/data)
+- **Size**: 28,332 reviews across 24 columns (ratings, review text, product info, categories, etc.)
+- **Balanced subset**: 3,618 reviews (1,206 per sentiment class) used for classification evaluation
 
-### 1. Review Classification
-   - **Objective**: Classify customer reviews into **positive**, **negative**, or **neutral** categories to help the company improve its products and services.
-   - **Task**: Create a model for classifying the **textual content** of reviews into these three categories.
+## Pipeline
 
-####  Mapping Star Ratings to Sentiment Classes  
-Since the dataset contains **star ratings (1 to 5)**, you should map them to three sentiment classes as follows:  
+```
+Raw Reviews (28,332)
+    |
+    v
+Data Cleaning & Preprocessing
+    |
+    v
+Sentiment Labeling (star ratings -> negative / neutral / positive)
+    |
+    v
+Class Balancing (downsample to 1,206 per class)
+    |                                       |
+    v                                       v
+Sentiment Classification             Category Clustering
+(CardiffNLP RoBERTa)                 (SentenceTransformer + KMeans + Ollama)
+    |                                       |
+    v                                       v
+Classification Metrics               6 Meta-Categories
+                                            |
+                                            v
+                                    Blog Post Generation
+                                    (Ollama / Qwen 2.5)
+                                            |
+                                            v
+                                    summaries.json
+```
 
-| **Star Rating** | **Sentiment Class** |
-|---------------|------------------|
-|  1 - 2     | **Negative**  |
-|  3         | **Neutral**  |
-|  4 - 5     | **Positive**  |
+## Results
 
- This is a simple approach, but you are encouraged to experiment with different mappings! 
+### Sentiment Classification
 
+Model: `cardiffnlp/twitter-roberta-base-sentiment`
 
-**Model Building**
+| Class    | Precision | Recall | F1-Score |
+|----------|-----------|--------|----------|
+| Negative | 0.68      | 0.76   | 0.72     |
+| Neutral  | 0.53      | 0.26   | 0.35     |
+| Positive | 0.65      | 0.91   | 0.76     |
+| **Overall Accuracy** | | | **64%** |
 
-For classifying customer reviews into **positive, negative, or neutral**, use **pretrained transformer-based models** to leverage powerful language representations without training from scratch.  
+### Product Categories
 
-#### Suggested Models  
-- **`distilbert-base-uncased`** – Lightweight and fast, ideal for limited resources.  
-- **`bert-base-uncased`** – A strong general-purpose model for sentiment analysis.  
-- **`roberta-base`** – More robust to nuanced sentiment variations.  
-- **`nlptown/bert-base-multilingual-uncased-sentiment`** – Handles multiple languages, useful for diverse datasets.  
-- **`cardiffnlp/twitter-roberta-base-sentiment`** – Optimized for short texts like social media reviews.  
+Products were clustered into 6 meta-categories:
 
-Explore models on [Hugging Face](https://huggingface.co/models) and experiment with fine-tuning to improve accuracy.
+| Category | Description |
+|----------|-------------|
+| Health & Beauty | Batteries, personal care, health items |
+| Electronics | Audio, video, smart home, cameras |
+| Tablets & E-readers | Fire tablets, Kindle devices |
+| Home & Kitchen | Kitchen appliances, storage, accessories |
+| Office Supplies | Laptop stands, desk accessories |
+| Pet Supplies | Dog crates, cat litter boxes, pet accessories |
 
-### Model Evaluation
+### Generated Blog Posts
 
-#### Evaluation Metrics
+The pipeline produces category-specific blog articles covering:
+- Top 3 products with average ratings and review counts
+- Key features, pros, and cons
+- Top complaints from reviews
+- Worst product in each category and reasons to avoid it
 
-- Evaluated the model's performance on a separate test dataset using various evaluation metrics:
-  - Accuracy: Percentage of correctly classified instances.
-  - Precision: Proportion of true positive predictions among all positive predictions.
-  - Recall: Proportion of true positive predictions among all actual positive instances.
-  - F1-score: Harmonic mean of precision and recall.
-- Calculated confusion matrix to analyze model's performance across different classes.
+Output is saved to `notebooks/summaries.json`.
 
-####  Results
+## Tech Stack
 
-- Model achieved an accuracy of X% on the test dataset.
- - Precision, recall, and F1-score for each class are as follows:
- - Class 1: Precision=X%, Recall=X%, F1-score=X%
- - Class 2: Precision=X%, Recall=X%, F1-score=X%
- - ...
-- Confusion matrix showing table and graphical representations
+| Component | Tool |
+|-----------|------|
+| Data processing | pandas, numpy |
+| Visualization | matplotlib, seaborn |
+| Sentiment model | `cardiffnlp/twitter-roberta-base-sentiment` (Hugging Face Transformers) |
+| Embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
+| Clustering | scikit-learn KMeans |
+| Category classification & blog generation | Ollama (Qwen 2.5) |
+| Evaluation | scikit-learn (classification_report, confusion_matrix) |
 
+## Project Structure
 
-### 2. Product Category Clustering
-   - **Objective**: Simplify the dataset by clustering product categories into **4-6 meta-categories**.
-   - **Task**: Create a model to group all reviews into 4-6 broader categories. Example suggestions:
-     - Ebook readers
-     - Batteries
-     - Accessories (keyboards, laptop stands, etc.)
-     - Non-electronics (Nespresso pods, pet carriers, etc.)
-   - **Note**: Analyze the dataset in depth to determine the most appropriate categories.
+```
+.
+├── README.md
+├── data/
+│   └── amazon-customer-reviews/       # Raw CSV files from Kaggle
+├── notebooks/
+│   ├── main.ipynb                     # Full pipeline notebook
+│   ├── Amazon_Reviews_Fine_Tuning_Roberta_Base.ipynb  # Fine-tuning experiment
+│   └── summaries.json                 # Generated blog post output
+└── .gitignore
+```
 
-### 3. Review Summarization Using Generative AI
-   - **Objective**: Summarize reviews into articles that recommend the top products for each category.
-   - **Task**: Create a model that generates a short article (like a blog post) for each product category. The output should include:
-     - **Top 3 products** and key differences between them.
-     - **Top complaints** for each of those products.
-     - **Worst product** in the category and why it should be avoided.
+## Setup & Usage
 
-     Consider using **Pretrained Generative Models** like **T5**, **GPT-3**, or **BART** for generating coherent and well-structured summaries. These models excel at tasks like summarization and text generation, and can be fine-tuned to produce high-quality outputs based on the extracted insights from reviews. 
-     You are encouraged to explore other **Transformer-based models** available on platforms like **Hugging Face**. Fine-tuning any of these pre-trained models on your specific dataset could further improve the relevance and quality of the generated summaries.
+### Prerequisites
 
-## Datasets
+- Python 3.9+
+- [Ollama](https://ollama.com/) installed locally with the Qwen 2.5 model pulled
 
-- **Primary Dataset**: [Amazon Product Reviews](https://www.kaggle.com/datasets/datafiniti/consumer-reviews-of-amazon-products/data)
-- **Larger Dataset**: [Amazon Reviews Dataset](https://cseweb.ucsd.edu/~jmcauley/datasets.html#amazon_reviews)
-- **Additional Datasets**: You are free to use other datasets from sources like HuggingFace, Kaggle, or any other platform.
+### Installation
 
+```bash
+pip install pandas numpy matplotlib seaborn scikit-learn transformers sentence-transformers ollama
+```
 
-### Expectations
+### Running
 
-- All your three components (classification, clustering, and text summarizer) should be visible or possible to interact with on the page in some form.
-- You are free to host the models on your laptop or any cloud platform (e.g., Gradio, AWS, etc.).
+1. Download the dataset from [Kaggle](https://www.kaggle.com/datasets/datafiniti/consumer-reviews-of-amazon-products/data) and place the CSV files in `data/amazon-customer-reviews/`.
+2. Pull the Qwen 2.5 model for Ollama:
+   ```bash
+   ollama pull qwen2.5
+   ```
+3. Open and run `notebooks/main.ipynb` from top to bottom.
+4. Generated blog summaries will be saved to `notebooks/summaries.json`.
 
+## Notebooks
 
-## Deliverables
-
-1. **Source Code**:
-   - Well-organized and linted code (use tools like `pylint`).
-   - Notebooks should be structured with clear headers/sections.
-   - Alternatively, provide plain Python files with a `main()` function.
-2. **README**:
-   - A detailed README file explaining how to run the code and reproduce the results.
-3. **Final Output**:
-   - Generated blog posts with product recommendations.
-   - A website, text file, or Word document containing the final results.
-4. **PPT Presentation**:
-   - A presentation (no more than 15 minutes) tailored for both technical and non-technical audiences.
-5. **Bonus | Deployed Model**:
-   - Bonus: A deployed website/app using the framework of your choice.
-   - Bonus: Host the app so it can be queried by anyone.
-
-## Evaluation Criteria
-
-| **Task**                              | **Points** |
-|---------------------------------------|------------|
-| Data Preprocessing                    | 15         |
-| Model for Review Classification       | 20         |
-| Clustering Model                      | 20         |
-| Summarization Model                   | 30         |
-| PDF Report (Approach, Results, Analysis) | 5          |
-| PPT Presentation                      | 10         |
-| **Bonus**: Deployment & Hosting the App Publicly   | 10         |
-
-**Passing Score**: 70 points.
-
-## Additional Notes
-
-- **Teamwork**: Work individually or in groups of no more than 2 people. 
-- **Presentation**: Tailor your presentation for both technical and non-technical audiences. 
-
-## Suggested Workflow
-
-1. **Data Collection**: Gather and preprocess the dataset(s).
-2. **Model Development**:
-   - Build and evaluate the review classification model.
-   - Develop and test the clustering model.
-   - Create the summarization model using Generative AI.
-3. **OPTIONAL | Deployment**: Deploy the models using your chosen framework.
-4. **Documentation**: Prepare the README, PDF report, and PPT presentation.
-5. **Final Delivery**: Submit all deliverables.
+- **main.ipynb** - End-to-end pipeline: data loading, preprocessing, sentiment classification, category clustering, and blog post generation.
+- **Amazon_Reviews_Fine_Tuning_Roberta_Base.ipynb** - Experimental notebook for fine-tuning a RoBERTa model on the balanced review dataset as an alternative to the pre-trained classifier.
